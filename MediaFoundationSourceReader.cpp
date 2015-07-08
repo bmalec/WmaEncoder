@@ -25,35 +25,62 @@ MediaFoundationSourceReader::MediaFoundationSourceReader(IMFSourceReader *mfSour
 
 		_mfMetadata->GetAllPropertyNames(&metadataKeys);
 
-		PWSTR *pwstr;
-		ULONG count;
+		PWSTR *metadataPropertyKeys;
+		ULONG metadataPropertyCount;
 
-		PropVariantToStringVectorAlloc(metadataKeys, &pwstr, &count);
+		PropVariantToStringVectorAlloc(metadataKeys, &metadataPropertyKeys, &metadataPropertyCount);
 
-		_metadataItemCount = count;
+		_metadataItemCount = metadataPropertyCount;
 
-		_metadata = (MetadataKeyValuePair *)malloc(count * sizeof(MetadataKeyValuePair));
+		_metadata = (MetadataKeyValuePair *)malloc(metadataPropertyCount * sizeof(MetadataKeyValuePair));
 
 		for (int i = 0; i < _metadataItemCount; i++)
 		{
 			PROPVARIANT metadataValue;
+			PWSTR pvStringBuffer;
 
-			hr = _mfMetadata->GetProperty(*(pwstr + i), &metadataValue);
+			wchar_t *metadataKey = *(metadataPropertyKeys + i);
+
+			hr = _mfMetadata->GetProperty(metadataKey, &metadataValue);
 
 			MetadataKeyValuePair *kvp = (_metadata + i);
 
-			wcscpy_s(kvp->Key, sizeof(kvp->Key) / sizeof(kvp->Key[0]), *(pwstr + i));
+			wcscpy_s(kvp->Key, sizeof(kvp->Key) / sizeof(kvp->Key[0]), metadataKey);
 
-			kvp->Value = metadataValue;
+			hr = PropVariantToStringAlloc(metadataValue, &pvStringBuffer);
+
+			kvp->Value = (wchar_t *) malloc((wcslen(pvStringBuffer) + 1) * sizeof(wchar_t));
+
+			wcscpy_s(kvp->Value, wcslen(pvStringBuffer) + 1, pvStringBuffer);
+
+			CoTaskMemFree(pvStringBuffer);
+//			kvp->Value = metadataValue;
 
 			hr = S_OK;
 		}
 
-		CoTaskMemFree(pwstr);
+		CoTaskMemFree(metadataPropertyKeys);
 
 		PropVariantClear(&metadataKeys);
 	}
 
+}
+
+
+wchar_t *MediaFoundationSourceReader::GetMetadataValue(wchar_t *metadataKey)
+{
+	wchar_t *result = nullptr;
+
+	for (int i = 0; i < _metadataItemCount; i++)
+	{
+		if (wcscmp((_metadata + i)->Key, metadataKey) == 0)
+		{
+			result = (_metadata + i)->Value;
+			break;
+		}
+	}
+
+	return result;
 }
 
 

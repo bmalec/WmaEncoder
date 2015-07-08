@@ -101,6 +101,13 @@ MediaFoundationTransform::MediaFoundationTransform(IMFActivate *activationObj, W
 		if (hr == MF_E_NO_MORE_TYPES)
 			break;
 
+		// Get the AM_MEDIA_TYPE structure from the media type, in case we want to need
+		// to differentiate between Standard and Pro WMA codecs in the future...
+
+		AM_MEDIA_TYPE *amMediaType;
+	    mediaType->GetRepresentation(AM_MEDIA_TYPE_REPRESENTATION, (LPVOID *) &amMediaType);
+	    WAVEFORMATEX *waveFormat = (WAVEFORMATEX *) amMediaType->pbFormat;
+
 		// there's only a few things we're interested in with the output type, so only bother grabbing those values
 
 		UINT32 channelCount;
@@ -117,6 +124,8 @@ MediaFoundationTransform::MediaFoundationTransform(IMFActivate *activationObj, W
 			break;
 		}
 	}
+
+  index = 0;
 }
 
 
@@ -134,7 +143,7 @@ MediaFoundationTransform *MediaFoundationTransform::LoadWmaEncoderTransform(WmaE
 	MFT_REGISTER_TYPE_INFO typeInfo;
 
 	typeInfo.guidMajorType = MFMediaType_Audio;
-	typeInfo.guidSubtype = MFAudioFormat_WMAudioV9;
+	typeInfo.guidSubtype = (encodingFormat == WmaEncodingFormat::Lossless) ? MFAudioFormat_WMAudio_Lossless : MFAudioFormat_WMAudioV8;
 
 	HRESULT hr = MFTEnumEx(MFT_CATEGORY_AUDIO_ENCODER, MFT_ENUM_FLAG_TRANSCODE_ONLY, nullptr,  &typeInfo, &transformActivationObjs, &transformCount);
 

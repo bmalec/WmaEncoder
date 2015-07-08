@@ -7,8 +7,8 @@ class MediaFoundationSourceReader
 {
 	struct MetadataKeyValuePair
 	{
-		wchar_t Key[30];
-		PROPVARIANT Value;
+		wchar_t Key[40];
+		wchar_t *Value;
 	};
 
 private:
@@ -24,4 +24,5 @@ public:
 
 	IMFMediaType *GetCurrentMediaType();
 	IMFSourceReader *GetSourceReader();
+	wchar_t *GetMetadataValue(wchar_t *metadataKey);
 };

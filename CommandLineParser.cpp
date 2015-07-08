@@ -42,28 +42,27 @@ void CommandLineParser::Parse(int argc, WCHAR* argv[], Parameters* parameters)
 			switch (pendingOption)
 			{
 			case CommandLineOption::Album:
-				parameters->Album = std::wstring(currentToken);
+				parameters->Album = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 
 			case CommandLineOption::Artist:
-				parameters->Artist = std::wstring(currentToken);
+				parameters->Artist = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 
 			case CommandLineOption::Genre:
-				parameters->Genre = std::wstring(currentToken);
+				parameters->Genre = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 
 			case CommandLineOption::Title:
-				parameters->Title = std::wstring(currentToken);
+				parameters->Title = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 
 			case CommandLineOption::TrackNumber:
-				temp = wcstol(currentToken, NULL, 10);
-				parameters->TrackNumber = temp;
+				parameters->TrackNumber = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 
@@ -80,12 +79,12 @@ void CommandLineParser::Parse(int argc, WCHAR* argv[], Parameters* parameters)
 				break;
 
 			case CommandLineOption::OutputFolder:
-				parameters->OutputFolder = std::wstring(currentToken);
+				wcscpy(parameters->OutputFolder, currentToken);
 				pendingOption = CommandLineOption::None;
 				break;
 
 			case CommandLineOption::Year:
-				parameters->Year = std::wstring(currentToken);
+				parameters->Year = currentToken;
 				pendingOption = CommandLineOption::None;
 				break;
 			}
@@ -106,13 +105,13 @@ void CommandLineParser::Parse(int argc, WCHAR* argv[], Parameters* parameters)
 
 			if (pendingOption == CommandLineOption::None)
 			{
-				if (parameters->InputFilename.length() == 0)
+				if (wcslen(parameters->InputFilename) == 0)
 				{
-					parameters->InputFilename = std::wstring(currentToken);
+          wcscpy(parameters->InputFilename, currentToken);
 				}
-				else if (parameters->OutputFilename.length() == 0)
+				else if (wcslen(parameters->OutputFilename) == 0)
 				{
-					parameters->OutputFilename = std::wstring(currentToken);
+					wcscpy(parameters->OutputFilename, currentToken);
 				}
 			}
 			

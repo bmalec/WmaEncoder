@@ -51,6 +51,23 @@ void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, M
 
 	IMFMediaType *inputMediaType = reader->GetCurrentMediaType();
 
+	BOOL isCompressed;
+	
+	inputMediaType->IsCompressedFormat(&isCompressed);
+
+	UINT32 itemCount;
+	inputMediaType->GetCount(&itemCount);
+
+	for (int i = 0; i < itemCount; i++)
+	{
+		GUID guid;
+		inputMediaType->GetItemByIndex(i, &guid, nullptr);
+
+		int j = i;
+
+	}
+
+
 	DWORD streamIndex = 0;
 
 	hr = _mfSinkWriter->AddStream(transform->GetMediaType(), &streamIndex);
