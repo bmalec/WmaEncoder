@@ -51,30 +51,40 @@ void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, M
 
 	IMFMediaType *inputMediaType = reader->GetCurrentMediaType();
 
-	BOOL isCompressed;
-	
-	inputMediaType->IsCompressedFormat(&isCompressed);
-
-	UINT32 itemCount;
-	inputMediaType->GetCount(&itemCount);
-
-	for (int i = 0; i < itemCount; i++)
-	{
-		GUID guid;
-		inputMediaType->GetItemByIndex(i, &guid, nullptr);
-
-		int j = i;
-
-	}
-
 
 	DWORD streamIndex = 0;
 
 	hr = _mfSinkWriter->AddStream(transform->GetMediaType(), &streamIndex);
 
+	WAVEFORMATEX wfex;
 
+	UINT32 value;
 
-	hr = _mfSinkWriter->SetInputMediaType(0, inputMediaType, nullptr);
+	wfex.cbSize = 0;
+	wfex.wFormatTag = WAVE_FORMAT_PCM;
+
+	inputMediaType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &value);
+	wfex.nChannels = value;
+
+	inputMediaType->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &value);
+	wfex.nSamplesPerSec = value;
+
+	inputMediaType->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &value);
+	wfex.wBitsPerSample = value;
+
+	wfex.nBlockAlign = (wfex.nChannels * wfex.wBitsPerSample) / 8;
+	wfex.nAvgBytesPerSec = wfex.nSamplesPerSec * wfex.nBlockAlign;
+
+	IMFMediaType *mediaTypeHack;
+
+	hr = MFCreateMediaType(&mediaTypeHack);
+	hr = MFInitMediaTypeFromWaveFormatEx(mediaTypeHack, &wfex, sizeof(wfex));
+
+	hr = reader->GetSourceReader()->SetCurrentMediaType(0, nullptr, mediaTypeHack);
+
+	hr = _mfSinkWriter->SetInputMediaType(0, mediaTypeHack, nullptr);
+
+  DWORD dw = GetLastError();
 
 	hr = _mfSinkWriter->BeginWriting();
 

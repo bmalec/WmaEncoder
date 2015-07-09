@@ -223,10 +223,13 @@ int _tmain(int argc, _TCHAR* argv[])
 
   if (srcFolderLength < MAX_PATH - 1)
   {
-	  if (*(srcFileFolder + srcFolderLength - 1) != '\\')
+	  if (srcFolderLength > 0)
 	  {
-		  *(srcFileFolder + srcFolderLength) = '\\';
-		  *(srcFileFolder + srcFolderLength + 1) = '\0';
+		  if (*(srcFileFolder + srcFolderLength - 1) != '\\')
+		  {
+			  *(srcFileFolder + srcFolderLength) = '\\';
+			  *(srcFileFolder + srcFolderLength + 1) = '\0';
+		  }
 	  }
   }
 
