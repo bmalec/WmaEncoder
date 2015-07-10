@@ -88,7 +88,10 @@ MediaFoundationSourceReader *MediaFoundationSourceReader::CreateFromUrl(const wc
 {
 	IMFSourceReader *mfSourceReader;
 
-	HRESULT hr = MFCreateSourceReaderFromURL(url, nullptr, &mfSourceReader);
+  if (!SUCCEEDED(MFCreateSourceReaderFromURL(url, nullptr, &mfSourceReader)))
+  {
+    throw std::invalid_argument("Unable to open media file");
+  }
 
 	return new MediaFoundationSourceReader(mfSourceReader);
 }

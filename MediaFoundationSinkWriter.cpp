@@ -3,6 +3,37 @@
 #include <propvarutil.h>
 #include "MediaFoundationSinkWriter.h"
 
+static IMFMediaType *CreateIntermediateMediaType(IMFMediaType *inputMediaType)
+{
+  WAVEFORMATEX wfex;
+
+  UINT32 value;
+
+  wfex.cbSize = 0;
+  wfex.wFormatTag = WAVE_FORMAT_PCM;
+
+  inputMediaType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &value);
+  wfex.nChannels = value;
+
+  inputMediaType->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &value);
+  wfex.nSamplesPerSec = value;
+
+  inputMediaType->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &value);
+  wfex.wBitsPerSample = value;
+
+  wfex.nBlockAlign = (wfex.nChannels * wfex.wBitsPerSample) / 8;
+  wfex.nAvgBytesPerSec = wfex.nSamplesPerSec * wfex.nBlockAlign;
+
+  IMFMediaType *result;
+
+  HRESULT hr = MFCreateMediaType(&result);
+  hr = MFInitMediaTypeFromWaveFormatEx(result, &wfex, sizeof(wfex));
+
+  return result;
+}
+
+
+
 MediaFoundationSinkWriter *MediaFoundationSinkWriter::CreateSinkWriter(const wchar_t *uncFilePath)
 {
 	IMFSinkWriter *mfSinkWriter;
@@ -44,47 +75,28 @@ MediaFoundationSinkWriter::MediaFoundationSinkWriter(IMFSinkWriter *mfSinkWriter
 void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, MediaFoundationTransform *transform)
 {
 	HRESULT hr;
+  DWORD streamIndex = 0;
 
 	IMFSourceReader *mfSourceReader = reader->GetSourceReader();
-
-	// Get the input media type
-
-	IMFMediaType *inputMediaType = reader->GetCurrentMediaType();
-
-
-	DWORD streamIndex = 0;
-
 	hr = _mfSinkWriter->AddStream(transform->GetMediaType(), &streamIndex);
 
-	WAVEFORMATEX wfex;
+  // Get the input media type
 
-	UINT32 value;
+  IMFMediaType *inputMediaType = reader->GetCurrentMediaType();
 
-	wfex.cbSize = 0;
-	wfex.wFormatTag = WAVE_FORMAT_PCM;
+  // Initially, I attempted to set the sink writer InputMediaType to what was returned from a call to GetCurrentMediaType() on the
+  // SourceReader.  In some cases, that worked (.WAV to .WMA, WMA lossless to WMA lossless).  But in other cases, it didn't.
+  // However I discovered if I re-created the media type by creating a new MediaType instance using the main attributes
+  // (bits per sample, # of tracks, etc) of  the input media type and telling both the SinkWriter and SourceReader to use
+  // this new MediaType, things "magically" worked.
+  //
+  // Oftentimes I hear the phrase, "Hope is not a strategy."  I agree, hope is indeed not a strategy.  With Media Foundation, 
+  // the only strategy is magic.
 
-	inputMediaType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &value);
-	wfex.nChannels = value;
+  IMFMediaType *intermediateMediaType = CreateIntermediateMediaType(inputMediaType);
 
-	inputMediaType->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &value);
-	wfex.nSamplesPerSec = value;
-
-	inputMediaType->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &value);
-	wfex.wBitsPerSample = value;
-
-	wfex.nBlockAlign = (wfex.nChannels * wfex.wBitsPerSample) / 8;
-	wfex.nAvgBytesPerSec = wfex.nSamplesPerSec * wfex.nBlockAlign;
-
-	IMFMediaType *mediaTypeHack;
-
-	hr = MFCreateMediaType(&mediaTypeHack);
-	hr = MFInitMediaTypeFromWaveFormatEx(mediaTypeHack, &wfex, sizeof(wfex));
-
-	hr = reader->GetSourceReader()->SetCurrentMediaType(0, nullptr, mediaTypeHack);
-
-	hr = _mfSinkWriter->SetInputMediaType(0, mediaTypeHack, nullptr);
-
-  DWORD dw = GetLastError();
+	hr = reader->GetSourceReader()->SetCurrentMediaType(0, nullptr, intermediateMediaType);
+	hr = _mfSinkWriter->SetInputMediaType(0, intermediateMediaType, nullptr);
 
 	hr = _mfSinkWriter->BeginWriting();
 
