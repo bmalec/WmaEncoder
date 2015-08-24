@@ -22,6 +22,7 @@ public:
 	static MediaFoundationTransform *LoadWmaEncoderTransform(WmaEncodingFormat encodingFormat);
 
 	IMFMediaType *GetMediaType();
+	IMFTransform *GetTransform();
 
 
 

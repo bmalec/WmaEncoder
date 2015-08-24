@@ -3,6 +3,7 @@
 #include <propvarutil.h>
 #include <Mferror.h>
 #include <Wmcodecdsp.h>
+#include <wmcontainer.h>
 #include "MediaFoundationMediaType.h"
 #include "MediaFoundationTransform.h"
 
@@ -121,6 +122,16 @@ MediaFoundationTransform::MediaFoundationTransform(IMFActivate *activationObj, W
 		if ((channelCount == 2) && (bitsPerSample == 16) && (samplesPerSecond == 44100))
 		{
 			_mfMediaType = mediaType;
+
+//			IMFActivate *areYouFuckingSerious;
+//			activationObj->ShutdownObject();
+	//		_mfEncoder->Release();
+
+//			hr = MFCreateWMAEncoderActivate(mediaType, _propertyStore, &areYouFuckingSerious);
+
+		
+	//		hr = areYouFuckingSerious->ActivateObject(IID_PPV_ARGS(&_mfEncoder));
+
 			break;
 		}
 	}
@@ -132,6 +143,11 @@ MediaFoundationTransform::MediaFoundationTransform(IMFActivate *activationObj, W
 IMFMediaType *MediaFoundationTransform::GetMediaType()
 {
 	return _mfMediaType;
+}
+
+IMFTransform *MediaFoundationTransform::GetTransform()
+{
+	return _mfEncoder;
 }
 
 

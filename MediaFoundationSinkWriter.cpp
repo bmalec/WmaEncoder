@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <mfapi.h>
+#include <Mferror.h>
 #include <propvarutil.h>
 #include "MediaFoundationSinkWriter.h"
 
@@ -37,8 +38,13 @@ static IMFMediaType *CreateIntermediateMediaType(IMFMediaType *inputMediaType)
 MediaFoundationSinkWriter *MediaFoundationSinkWriter::CreateSinkWriter(const wchar_t *uncFilePath)
 {
 	IMFSinkWriter *mfSinkWriter;
+	IMFAttributes *mfSinkWriterAttributes;
+	HRESULT hr;
 
-	HRESULT hr = MFCreateSinkWriterFromURL(uncFilePath, nullptr, nullptr, &mfSinkWriter);
+	hr = MFCreateAttributes(&mfSinkWriterAttributes, 1);
+	hr = mfSinkWriterAttributes->SetUINT32(MF_READWRITE_DISABLE_CONVERTERS, -1);
+
+	hr = MFCreateSinkWriterFromURL(uncFilePath, nullptr, mfSinkWriterAttributes, &mfSinkWriter);
 
 	return new MediaFoundationSinkWriter(mfSinkWriter);
 }
@@ -78,7 +84,10 @@ void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, M
   DWORD streamIndex = 0;
 
 	IMFSourceReader *mfSourceReader = reader->GetSourceReader();
-	hr = _mfSinkWriter->AddStream(transform->GetMediaType(), &streamIndex);
+
+	
+
+
 
   // Get the input media type
 
@@ -96,7 +105,26 @@ void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, M
   IMFMediaType *intermediateMediaType = CreateIntermediateMediaType(inputMediaType);
 
 	hr = reader->GetSourceReader()->SetCurrentMediaType(0, nullptr, intermediateMediaType);
-	hr = _mfSinkWriter->SetInputMediaType(0, intermediateMediaType, nullptr);
+
+	IMFTransform *mfTransform = transform->GetTransform();
+
+	DWORD inputStreamCount, outputStreamCount;
+	hr = mfTransform->GetStreamCount(&inputStreamCount, &outputStreamCount);
+
+	DWORD inputStreamId = 0, outputStreamId = 0;
+
+	hr = mfTransform->GetStreamIDs(1, &inputStreamId, 1, &outputStreamId);
+
+	hr = mfTransform->SetInputType(inputStreamId, intermediateMediaType, 0);
+	hr = mfTransform->SetOutputType(outputStreamId, transform->GetMediaType(), 0);
+	MFT_OUTPUT_STREAM_INFO outputStreamInfo;
+
+	hr = mfTransform->GetOutputStreamInfo(0, &outputStreamInfo);
+
+
+	hr = _mfSinkWriter->AddStream(transform->GetMediaType(), &streamIndex);
+
+	hr = _mfSinkWriter->SetInputMediaType(0, transform->GetMediaType(), nullptr);
 
 	hr = _mfSinkWriter->BeginWriting();
 
@@ -106,11 +134,59 @@ void MediaFoundationSinkWriter::Transcode(MediaFoundationSourceReader *reader, M
 
 	hr = mfSourceReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &streamIndex, &streamFlags, &timestamp, &mfSample);
 
+	MFT_OUTPUT_DATA_BUFFER transformOutputBuffer;
+
 	while (mfSample != nullptr)
 	{
-		hr = _mfSinkWriter->WriteSample(0, mfSample);
+		hr = mfTransform->ProcessInput(inputStreamId, mfSample, 0);
 
-		mfSample->Release();
+		while (hr == S_OK)
+		{
+			hr = mfSourceReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &streamIndex, &streamFlags, &timestamp, &mfSample);
+
+			if (mfSample == nullptr)
+				break;
+
+			hr = mfTransform->ProcessInput(inputStreamId, mfSample, 0);
+		}
+
+	
+
+
+
+		// todo: need to verify that transform can create the output sample object for us
+
+		IMFSample *mfTransformOutputSample;
+		IMFMediaBuffer *mfMediaBuffer;
+
+		hr = MFCreateSample(&mfTransformOutputSample);
+		hr = MFCreateMemoryBuffer(outputStreamInfo.cbSize, &mfMediaBuffer);
+		hr = mfTransformOutputSample->AddBuffer(mfMediaBuffer);
+
+
+		transformOutputBuffer.dwStreamID = outputStreamId;
+		transformOutputBuffer.pSample = mfTransformOutputSample;
+		transformOutputBuffer.dwStatus = 0;
+		transformOutputBuffer.pEvents = nullptr;
+
+		DWORD status;
+
+		hr = mfTransform->ProcessOutput(0, 1, &transformOutputBuffer, &status);
+
+		while (hr == MF_E_TRANSFORM_NEED_MORE_INPUT)
+		{
+			hr = mfSourceReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &streamIndex, &streamFlags, &timestamp, &mfSample);
+			hr = mfTransform->ProcessInput(inputStreamId, mfSample, 0);
+			hr = mfTransform->ProcessOutput(0, 1, &transformOutputBuffer, &status);
+
+		}
+
+
+
+		hr = _mfSinkWriter->WriteSample(0, transformOutputBuffer.pSample);
+
+		if (mfSample != nullptr)
+		    mfSample->Release();
 
 		hr = mfSourceReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &streamIndex, &streamFlags, &timestamp, &mfSample);
 
